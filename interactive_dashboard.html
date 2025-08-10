@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Production System Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-areas: 
+                "header header header"
+                "network stats controls"
+                "logs logs logs";
+            grid-template-columns: 2fr 1fr 1fr;
+            grid-template-rows: auto 1fr 300px;
+            height: 100vh;
+            gap: 20px;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        .header {
+            grid-area: header;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .network-container {
+            grid-area: network;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .stats-panel {
+            grid-area: stats;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .controls-panel {
+            grid-area: controls;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .logs-panel {
+            grid-area: logs;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .agent {
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            text-align: center;
+        }
+        
+        .agent:hover {
+            transform: scale(1.15) rotate(5deg);
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.4);
+            z-index: 100;
+        }
+        
+        .agent.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.8), 0 0 60px rgba(255, 255, 255, 0.4);
+            border: 3px solid rgba(255, 255, 255, 0.9);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(255, 255, 255, 0.8); }
+            50% { box-shadow: 0 0 50px rgba(255, 255, 255, 1), 0 0 80px rgba(255, 255, 255, 0.6); }
+        }
+        
+        @keyframes messageFlow {
+            0% { opacity: 0; transform: scale(0); }
+            50% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0); }
+        }
+        
+        .job-agent {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            top: 80px;
+            left: 80px;
+        }
+        
+        .scheduler-agent {
+            background: linear-gradient(135deg, #4834d4, #686de0);
+            top: 80px;
+            left: 350px;
+        }
+        
+        .machine-agent {
+            background: linear-gradient(135deg, #00d2d3, #01a3a4);
+            border-radius: 20px;
+            width: 85px;
+            height: 85px;
+        }
+        
+        .machine-a { top: 250px; left: 180px; }
+        .machine-b { top: 250px; left: 300px; }
+        .machine-c { top: 250px; left: 420px; }
+        
+        .production-line-agent {
+            background: linear-gradient(135deg, #feca57, #ff9ff3);
+            top: 420px;
+            left: 300px;
+        }
+        
+        .maintenance-agent {
+            background: linear-gradient(135deg, #5f27cd, #341f97);
+            top: 250px;
+            left: 550px;
+        }
+        
+        .status-indicator {
+            font-size: 9px;
+            margin-top: 3px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .idle { border-color: #2ecc71 !important; }
+        .busy { border-color: #f39c12 !important; animation: working 1s infinite; }
+        .broken { border-color: #e74c3c !important; animation: broken 0.5s infinite; }
+        .maintenance { border-color: #9b59b6 !important; animation: maintenance 2s infinite; }
+        
+        @keyframes working {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(2deg); }
+            75% { transform: rotate(-2deg); }
+        }
+        
+        @keyframes broken {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(0.5); }
+        }
+        
+        @keyframes maintenance {
+            0%, 100% { border-color: #9b59b6; }
+            50% { border-color: #f39c12; }
+        }
+        
+        .connection {
+            position: absolute;
+            pointer-events: none;
+        }
+        
+        .message-dot {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            animation: messageFlow 2s ease-in-out;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            margin: 5px;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .stat-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        
+        .stat-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .log-entry {
+            margin: 8px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .log-entry:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .log-entry.info { border-left-color: #3498db; }
+        .log-entry.success { border-left-color: #2ecc71; }
+        .log-entry.warning { border-left-color: #f39c12; }
+        .log-entry.error { border-left-color: #e74c3c; }
+        
+        .agent-detail-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .performance-meter {
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .performance-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        
+        .network-title {
+            color: white;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .agents-layer {
+            position: relative;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🏭 Interactive Production System Dashboard</h1>
+            <p>Real-time Multi-Agent Production Management System with Live Visualization</p>
+            <div style="margin-top: 10px;">
+                <span id="connection-status" style="color: #2ecc71;">● Connected</span>
+                <span style="margin: 0 20px;">|</span>
+                <span>System Status: <span id="system-status">Operational</span></span>
+            </div>
+        </div>
+        
+        <div class="network-container">
+            <h3 class="network-title">🔗 Agent Network Topology</h3>
+            
+            <!-- SVG for connections -->
+            <svg id="connections-svg">
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+                            refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="rgba(255,255,255,0.7)" />
+                    </marker>
+                </defs>
+            </svg>
+            
+            <!-- Agents layer -->
+            <div class="agents-layer">
+                <!-- Job Agent -->
+                <div class="agent job-agent" id="job-agent" onclick="selectAgent('job')" 
+                     data-agent-type="generator" data-status="active">
+                    <div style="font-size: 20px;">📋</div>
+                    <div>Job Agent</div>
+                    <div class="status-indicator" id="job-status">Active</div>
+                </div>
+                
+                <!-- Scheduler Agent -->
+                <div class="agent scheduler-agent" id="scheduler-agent" onclick="selectAgent('scheduler')"
+                     data-agent-type="scheduler" data-status="active">
+                    <div style="font-size: 20px;">🧠</div>
+                    <div>Scheduler</div>
+                    <div class="status-indicator" id="scheduler-status">Active</div>
+                </div>
+                
+                <!-- Machine Agents -->
+                <div class="agent machine-agent machine-a idle" id="machine-a" onclick="selectAgent('machine-a')"
+                     data-agent-type="machine" data-status="idle">
+                    <div style="font-size: 18px;">🔧</div>
+                    <div>Machine A</div>
+                    <div class="status-indicator" id="machine-a-status">Idle</div>
+                </div>
+                
+                <div class="agent machine-agent machine-b idle" id="machine-b" onclick="selectAgent('machine-b')"
+                     data-agent-type="machine" data-status="idle">
+                    <div style="font-size: 18px;">⚙️</div>
+                    <div>Machine B</div>
+                    <div class="status-indicator" id="machine-b-status">Idle</div>
+                </div>
+                
+                <div class="agent machine-agent machine-c idle" id="machine-c" onclick="selectAgent('machine-c')"
+                     data-agent-type="machine" data-status="idle">
+                    <div style="font-size: 18px;">🔩</div>
+                    <div>Machine C</div>
+                    <div class="status-indicator" id="machine-c-status">Idle</div>
+                </div>
+                
+                <!-- Production Line Agent -->
+                <div class="agent production-line-agent" id="production-line-agent" onclick="selectAgent('production-line')"
+                     data-agent-type="coordinator" data-status="active">
+                    <div style="font-size: 20px;">🏭</div>
+                    <div>Prod. Line</div>
+                    <div class="status-indicator" id="production-line-status">Active</div>
+                </div>
+                
+                <!-- Maintenance Agent -->
+                <div class="agent maintenance-agent" id="maintenance-agent" onclick="selectAgent('maintenance')"
+                     data-agent-type="maintenance" data-status="active">
+                    <div style="font-size: 20px;">🛠️</div>
+                    <div>Maintenance</div>
+                    <div class="status-indicator" id="maintenance-status">Active</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="stats-panel">
+            <h3>📊 Live System Statistics</h3>
+            <div class="stat-item">
+                <div>Jobs in Queue</div>
+                <div class="stat-value" id="jobs-queue">0</div>
+                <div class="performance-meter">
+                    <div class="performance-fill" id="queue-meter" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div>Completed Jobs</div>
+                <div class="stat-value" id="jobs-completed">0</div>
+            </div>
+            <div class="stat-item">
+                <div>Active Machines</div>
+                <div class="stat-value" id="active-machines">3</div>
+                <div class="performance-meter">
+                    <div class="performance-fill" id="machine-meter" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="stat-item">
+                <div>System Uptime</div>
+                <div class="stat-value" id="uptime">00:00:00</div>
+            </div>
+            <div class="stat-item">
+                <div>Throughput</div>
+                <div class="stat-value"><span id="throughput">0.0</span> jobs/min</div>
+                <div class="performance-meter">
+                    <div class="performance-fill" id="throughput-meter" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls-panel">
+            <h3>🎮 System Controls</h3>
+            <div style="margin-bottom: 20px;">
+                <button onclick="generateJob()" id="gen-job-btn">📄 Generate Job</button>
+                <button onclick="generateRushJob()" id="rush-job-btn">🚨 Rush Order</button>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <button onclick="triggerMaintenance()">🔧 Schedule Maintenance</button>
+                <button onclick="simulateBreakdown()">💥 Simulate Breakdown</button>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <button onclick="startSimulation()" id="start-btn">▶️ Start Simulation</button>
+                <button onclick="pauseSimulation()" id="pause-btn">⏸️ Pause</button>
+                <button onclick="resetSystem()">🔄 Reset System</button>
+            </div>
+            
+            <div class="agent-detail-panel" id="selected-agent-info">
+                <h4>🔍 Agent Details</h4>
+                <p>Click on an agent node to see detailed information and real-time metrics.</p>
+            </div>
+        </div>
+        
+        <div class="logs-panel">
+            <h3>📋 System Activity Logs 
+                <button onclick="clearLogs()" style="float: right; padding: 8px 15px;">🗑️ Clear</button>
+            </h3>
+            <div id="logs-container">
+                <div class="log-entry info">
+                    <strong>[Ready]</strong> System initialized and ready for operation
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let selectedAgent = null;
+        let simulationRunning = false;
+        let startTime = Date.now();
+        let messageCounter = 0;
+        let stats = {
+            jobsQueue: 0,
+            jobsCompleted: 0,
+            activeMachines: 3,
+            throughput: 0,
+            totalJobs: 0
+        };
+
+        // Agent configurations
+        const agentConfigs = {
+            'job': {
+                name: 'Job Agent',
+                type: 'Generator',
+                description: 'Generates production jobs and rush orders. Monitors job priorities and sends work requests to the scheduler.',
+                connections: ['scheduler'],
+                metrics: { jobsGenerated: 0, rushJobs: 0 }
+            },
+            'scheduler': {
+                name: 'Scheduler Agent',
+                type: 'Core Decision Maker',
+                description: 'Central coordinator that assigns jobs to machines, handles dynamic rescheduling, and optimizes production flow.',
+                connections: ['machine-a', 'machine-b', 'machine-c'],
+                metrics: { assignmentsMade: 0, reschedulings: 0 }
+            },
+            'machine-a': {
+                name: 'Machine A',
+                type: 'Production Unit',
+                description: 'High-precision manufacturing unit. Executes assigned jobs and reports completion status.',
+                connections: ['production-line', 'maintenance'],
+                metrics: { jobsCompleted: 0, efficiency: 100, uptime: 100 }
+            },
+            'machine-b': {
+                name: 'Machine B',
+                type: 'Production Unit', 
+                description: 'Standard manufacturing unit. Handles medium complexity jobs with good reliability.',
+                connections: ['production-line', 'maintenance'],
+                metrics: { jobsCompleted: 0, efficiency: 100, uptime: 100 }
+            },
+            'machine-c': {
+                name: 'Machine C',
+                type: 'Production Unit',
+                description: 'Heavy-duty manufacturing unit. Optimized for large batch processing.',
+                connections: ['production-line', 'maintenance'],
+                metrics: { jobsCompleted: 0, efficiency: 100, uptime: 100 }
+            },
+            'production-line': {
+                name: 'Production Line Agent',
+                type: 'Line Coordinator',
+                description: 'Monitors overall line performance, detects bottlenecks, and coordinates multi-machine workflows.',
+                connections: ['scheduler'],
+                metrics: { linesMonitored: 1, bottlenecksDetected: 0, alertsSent: 0 }
+            },
+            'maintenance': {
+                name: 'Maintenance Agent',
+                type: 'Maintenance Manager',
+                description: 'Schedules preventive maintenance, handles breakdowns, and ensures equipment reliability.',
+                connections: ['scheduler'],
+                metrics: { maintenanceJobs: 0, repairsCompleted: 0, scheduledMaintenance: 0 }
+            }
+        };
+
+        // Initialize dashboard
+        function init() {
+            drawConnections();
+            startRealTimeUpdates();
+            addLog('Interactive dashboard initialized', 'success');
+            addLog('Click agents to explore their details and connections', 'info');
+        }
+
+        // Draw network connections
+        function drawConnections() {
+            const svg = document.getElementById('connections-svg');
+            svg.innerHTML = svg.querySelector('defs').outerHTML; // Keep the marker definition
+            
+            const connections = [
+                {from: 'job-agent', to: 'scheduler-agent', color: '#ff6b6b', type: 'job-request'},
+                {from: 'scheduler-agent', to: 'machine-a', color: '#4834d4', type: 'job-assignment'},
+                {from: 'scheduler-agent', to: 'machine-b', color: '#4834d4', type: 'job-assignment'},
+                {from: 'scheduler-agent', to: 'machine-c', color: '#4834d4', type: 'job-assignment'},
+                {from: 'machine-a', to: 'production-line-agent', color: '#00d2d3', type: 'status-update'},
+                {from: 'machine-b', to: 'production-line-agent', color: '#00d2d3', type: 'status-update'},
+                {from: 'machine-c', to: 'production-line-agent', color: '#00d2d3', type: 'status-update'},
+                {from: 'maintenance-agent', to: 'machine-a', color: '#5f27cd', type: 'maintenance'},
+                {from: 'maintenance-agent', to: 'machine-b', color: '#5f27cd', type: 'maintenance'},
+                {from: 'maintenance-agent', to: 'machine-c', color: '#5f27cd', type: 'maintenance'},
+                {from: 'production-line-agent', to: 'scheduler-agent', color: '#feca57', type: 'alert'},
+            ];
+
+            connections.forEach((conn, index) => {
+                const fromEl = document.getElementById(conn.from);
+                const toEl = document.getElementById(conn.to);
+                
+                if (fromEl && toEl) {
+                    const line = createConnectionLine(fromEl, toEl, conn.color, conn.type);
+                    svg.appendChild(line);
+                }
+            });
+        }
+
+        function createConnectionLine(fromEl, toEl, color, type) {
+            const containerRect = document.querySelector('.network-container').getBoundingClientRect();
+            const fromRect = fromEl.getBoundingClientRect();
+            const toRect = toEl.getBoundingClientRect();
+            
+            const fromX = fromRect.left - containerRect.left + fromRect.width / 2;
+            const fromY = fromRect.top - containerRect.top + fromRect.height / 2;
+            const toX = toRect.left - containerRect.left + toRect.width / 2;
+            const toY = toRect.top - containerRect.top + toRect.height / 2;
+            
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', fromX);
+            line.setAttribute('y1', fromY);
+            line.setAttribute('x2', toX);
+            line.setAttribute('y2', toY);
+            line.setAttribute('stroke', color);
+            line.setAttribute('stroke-width', '3');
+            line.setAttribute('stroke-opacity', '0.6');
+            line.setAttribute('stroke-dasharray', type === 'alert' ? '10,5' : '5,5');
+            line.setAttribute('marker-end', 'url(#arrowhead)');
+            line.setAttribute('class', `connection ${type}`);
+            
+            return line;
+        }
+
+        // Select agent and show details
+        function selectAgent(agentId) {
+            // Remove previous selection
+            document.querySelectorAll('.agent').forEach(el => {
+                el.classList.remove('selected');
+            });
+            
+            // Select new agent
+            selectedAgent = agentId;
+            const agentEl = document.getElementById(agentId === 'job' ? 'job-agent' : 
+                                                 agentId === 'scheduler' ? 'scheduler-agent' :
+                                                 agentId === 'production-line' ? 'production-line-agent' :
+                                                 agentId === 'maintenance' ? 'maintenance-agent' : agentId);
+            
+            if (agentEl) {
+                agentEl.classList.add('selected');
+                showAgentDetails(agentId);
+                highlightConnections(agentId);
+                addLog(`Selected ${agentConfigs[agentId].name}`, 'info');
+            }
+        }
+
+        function showAgentDetails(agentId) {
+            const config = agentConfigs[agentId];
+            const infoDiv = document.getElementById('selected-agent-info');
+            
+            const metricsHtml = Object.entries(config.metrics)
+                .map(([key, value]) => `<div><strong>${key}:</strong> ${value}</div>`)
+                .join('');
+            
+            infoDiv.innerHTML = `
+                <h4>🤖 ${config.name}</h4>
+                <p><strong>Type:</strong> ${config.type}</p>
+                <p><strong>Description:</strong> ${config.description}</p>
+                <div style="margin-top: 15px;">
+                    <strong>📈 Real-time Metrics:</strong>
+                    <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                        ${metricsHtml}
+                    </div>
+                </div>
+                <div style="margin-top: 15px;">
+                    <strong>🔗 Connected to:</strong> ${config.connections.length} agents
+                </div>
+            `;
+        }
+
+        function highlightConnections(agentId) {
+            // Reset all connections
+            document.querySelectorAll('.connection').forEach(line => {
+                line.setAttribute('stroke-opacity', '0.3');
+                line.setAttribute('stroke-width', '2');
+            });
+            
+            // Highlight selected agent's connections
+            const config = agentConfigs[agentId];
+            config.connections.forEach(targetId => {
+                const connections = document.querySelectorAll('.connection');
+                connections.forEach(line => {
+                    // Check if this line connects our selected agent to the target
+                    // This is a simplified check - in a real app you'd store connection data
+                    line.setAttribute('stroke-opacity', '0.9');
+                    line.setAttribute('stroke-width', '4');
+                });
+            });
+        }
+
+        // Control functions with animations
+        function generateJob() {
+            const jobId = `J${String(++stats.totalJobs).padStart(4, '0')}`;
+            stats.jobsQueue++;
+            agentConfigs.job.metrics.jobsGenerated++;
+            
+            animateMessage('job-agent', 'scheduler-agent', '📄');
+            addLog(`Generated normal job: ${jobId}`, 'success');
+            updateStats();
+            
+            // Simulate job processing after delay
+            setTimeout(() => {
+                const machines = ['machine-a', 'machine-b', 'machine-c'];
+                const selectedMachine = machines[Math.floor(Math.random() * machines.length)];
+                assignJobToMachine(jobId, selectedMachine);
+            }, 1000);
+        }
+
+        function generateRushJob() {
+            const jobId = `R${String(++stats.totalJobs).padStart(4, '0')}`;
+            stats.jobsQueue++;
+            agentConfigs.job.metrics.jobsGenerated++;
+            agentConfigs.job.metrics.rushJobs++;
+            
+            animateMessage('job-agent', 'scheduler-agent', '🚨');
+            addLog(`Generated RUSH job: ${jobId} (High Priority)`, 'warning');
+            updateStats();
+            
+            setTimeout(() => {
+                const machines = ['machine-a', 'machine-b', 'machine-c'];
+                const selectedMachine = machines[Math.floor(Math.random() * machines.length)];
+                assignJobToMachine(jobId, selectedMachine);
+            }, 500); // Rush jobs assigned faster
+        }
+
+        function assignJobToMachine(jobId, machineId) {
+            if (stats.jobsQueue > 0) {
+                stats.jobsQueue--;
+                updateMachineStatus(machineId, 'busy');
+                animateMessage('scheduler-agent', machineId, '⚙️');
+                addLog(`Assigned ${jobId} to ${machineId.toUpperCase()}`, 'info');
+                agentConfigs.scheduler.metrics.assignmentsMade++;
+                
+                // Simulate job completion
+                const processingTime = 3000 + Math.random() * 4000; // 3-7 seconds
+                setTimeout(() => {
+                    completeJob(jobId, machineId);
+                }, processingTime);
+            }
+        }
+
+        function completeJob(jobId, machineId) {
+            stats.jobsCompleted++;
+            stats.throughput = (stats.jobsCompleted / ((Date.now() - startTime) / 60000)).toFixed(1);
+            updateMachineStatus(machineId, 'idle');
+            animateMessage(machineId, 'production-line-agent', '✅');
+            addLog(`${machineId.toUpperCase()} completed ${jobId}`, 'success');
+            agentConfigs[machineId].metrics.jobsCompleted++;
+            updateStats();
+        }
+
+        function simulateBreakdown() {
+            const machines = ['machine-a', 'machine-b', 'machine-c'].filter(m => 
+                !document.getElementById(m).classList.contains('broken')
+            );
+            
+            if (machines.length === 0) {
+                addLog('No machines available for breakdown simulation', 'warning');
+                return;
+            }
+            
+            const randomMachine = machines[Math.floor(Math.random() * machines.length)];
+            updateMachineStatus(randomMachine, 'broken');
+            animateMessage('maintenance-agent', randomMachine, '💥');
+            addLog(`BREAKDOWN: ${randomMachine.toUpperCase()} has malfunctioned!`, 'error');
+            
+            stats.activeMachines--;
+            updateStats();
+            
+            // Schedule automatic repair
+            setTimeout(() => {
+                repairMachine(randomMachine);
+            }, 8000);
+        }
+
+        function repairMachine(machineId) {
+            updateMachineStatus(machineId, 'idle');
+            animateMessage('maintenance-agent', machineId, '🔧');
+            addLog(`REPAIR: ${machineId.toUpperCase()} has been repaired and is operational`, 'success');
+            stats.activeMachines++;
+            agentConfigs.maintenance.metrics.repairsCompleted++;
+            updateStats();
+        }
+
+        function triggerMaintenance() {
+            const machines = ['machine-a', 'machine-b', 'machine-c'].filter(m => 
+                document.getElementById(m).classList.contains('idle')
+            );
+            
+            if (machines.length === 0) {
+                addLog('No idle machines available for maintenance', 'warning');
+                return;
+            }
+            
+            const selectedMachine = machines[Math.floor(Math.random() * machines.length)];
+            updateMachineStatus(selectedMachine, 'maintenance');
+            animateMessage('maintenance-agent', selectedMachine, '🛠️');
+            addLog(`MAINTENANCE: Scheduled maintenance for ${selectedMachine.toUpperCase()}`, 'info');
+            agentConfigs.maintenance.metrics.scheduledMaintenance++;
+            
+            // Complete maintenance after delay
+            setTimeout(() => {
+                updateMachineStatus(selectedMachine, 'idle');
+                addLog(`MAINTENANCE: ${selectedMachine.toUpperCase()} maintenance completed`, 'success');
+                agentConfigs.maintenance.metrics.maintenanceJobs++;
+            }, 5000);
+        }
+
+        function startSimulation() {
+            if (!simulationRunning) {
+                simulationRunning = true;
+                document.getElementById('start-btn').style.opacity = '0.5';
+                document.getElementById('pause-btn').style.opacity = '1';
+                addLog('🚀 Production simulation started - automatic job generation enabled', 'success');
+                
+                // Start automatic job generation
+                const jobInterval = setInterval(() => {
+                    if (simulationRunning) {
+                        if (Math.random() > 0.7) {
+                            generateRushJob();
+                        } else {
+                            generateJob();
+                        }
+                    } else {
+                        clearInterval(jobInterval);
+                    }
+                }, 4000);
+                
+                // Random events
+                const eventInterval = setInterval(() => {
+                    if (simulationRunning && Math.random() > 0.85) {
+                        if (Math.random() > 0.6) {
+                            simulateBreakdown();
+                        } else {
+                            triggerMaintenance();
+                        }
+                    } else if (!simulationRunning) {
+                        clearInterval(eventInterval);
+                    }
+                }, 10000);
+            }
+        }
+
+        function pauseSimulation() {
+            simulationRunning = false;
+            document.getElementById('start-btn').style.opacity = '1';
+            document.getElementById('pause-btn').style.opacity = '0.5';
+            addLog('⏸️ Simulation paused', 'warning');
+        }
+
+        function resetSystem() {
+            simulationRunning = false;
+            stats = { jobsQueue: 0, jobsCompleted: 0, activeMachines: 3, throughput: 0, totalJobs: 0 };
+            startTime = Date.now();
+            
+            // Reset all machines to idle
+            ['machine-a', 'machine-b', 'machine-c'].forEach(machine => {
+                updateMachineStatus(machine, 'idle');
+            });
+            
+            // Reset agent metrics
+            Object.values(agentConfigs).forEach(config => {
+                Object.keys(config.metrics).forEach(key => {
+                    if (typeof config.metrics[key] === 'number') {
+                        config.metrics[key] = 0;
+                    }
+                });
+            });
+            
+            updateStats();
+            clearLogs();
+            addLog('🔄 System reset completed', 'info');
+        }
+
+        // Animation and visual updates
+        function updateMachineStatus(machineId, status) {
+            const machine = document.getElementById(machineId);
+            const statusEl = document.getElementById(`${machineId}-status`);
+            
+            if (machine && statusEl) {
+                machine.classList.remove('idle', 'busy', 'broken', 'maintenance');
+                machine.classList.add(status);
+                machine.setAttribute('data-status', status);
+                statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            }
+        }
+
+        function animateMessage(fromId, toId, icon) {
+            const fromEl = document.getElementById(fromId);
+            const toEl = document.getElementById(toId);
+            
+            if (!fromEl || !toEl) return;
+            
+            const containerRect = document.querySelector('.network-container').getBoundingClientRect();
+            const fromRect = fromEl.getBoundingClientRect();
+            const toRect = toEl.getBoundingClientRect();
+            
+            const fromX = fromRect.left - containerRect.left + fromRect.width / 2;
+            const fromY = fromRect.top - containerRect.top + fromRect.height / 2;
+            const toX = toRect.left - containerRect.left + toRect.width / 2;
+            const toY = toRect.top - containerRect.top + toRect.height / 2;
+            
+            const messageDot = document.createElement('div');
+            messageDot.className = 'message-dot';
+            messageDot.textContent = icon;
+            messageDot.style.left = fromX + 'px';
+            messageDot.style.top = fromY + 'px';
+            messageDot.style.fontSize = '12px';
+            
+            document.querySelector('.network-container').appendChild(messageDot);
+            
+            // Animate to destination
+            const deltaX = toX - fromX;
+            const deltaY = toY - fromY;
+            
+            messageDot.animate([
+                { transform: 'translate(0, 0)', opacity: 1 },
+                { transform: `translate(${deltaX}px, ${deltaY}px)`, opacity: 0 }
+            ], {
+                duration: 1500,
+                easing: 'ease-in-out'
+            }).onfinish = () => {
+                messageDot.remove();
+                
+                // Flash destination
+                toEl.style.boxShadow = '0 0 20px rgba(255, 255, 255, 1)';
+                setTimeout(() => {
+                    toEl.style.boxShadow = '';
+                }, 300);
+            };
+        }
+
+        function updateStats() {
+            document.getElementById('jobs-queue').textContent = stats.jobsQueue;
+            document.getElementById('jobs-completed').textContent = stats.jobsCompleted;
+            document.getElementById('active-machines').textContent = stats.activeMachines;
+            document.getElementById('throughput').textContent = stats.throughput;
+            
+            // Update performance meters
+            document.getElementById('queue-meter').style.width = Math.min(stats.jobsQueue * 20, 100) + '%';
+            document.getElementById('machine-meter').style.width = (stats.activeMachines / 3) * 100 + '%';
+            document.getElementById('throughput-meter').style.width = Math.min(parseFloat(stats.throughput) * 10, 100) + '%';
+            
+            // Update uptime
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(uptime / 3600);
+            const minutes = Math.floor((uptime % 3600) / 60);
+            const seconds = uptime % 60;
+            document.getElementById('uptime').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function addLog(message, type = 'info') {
+            const logsContainer = document.getElementById('logs-container');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            
+            // Keep only last 30 logs
+            while (logsContainer.children.length > 30) {
+                logsContainer.removeChild(logsContainer.firstChild);
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('logs-container').innerHTML = '';
+            addLog('📋 Activity logs cleared', 'info');
+        }
+
+        function startRealTimeUpdates() {
+            // Update stats every second
+            setInterval(updateStats, 1000);
+            
+            // Redraw connections on window resize
+            window.addEventListener('resize', () => {
+                setTimeout(drawConnections, 100);
+            });
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>
