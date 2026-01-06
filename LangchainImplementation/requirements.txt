@@ -1,0 +1,10 @@
+langchain
+langchain-openai
+langchain-community
+openai
+python-dotenv
+rich
+transformers
+torch
+sentence-transformers
+numpy
