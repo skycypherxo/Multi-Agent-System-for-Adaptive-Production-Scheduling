@@ -1,5 +1,5 @@
 #this is the logic for the machine code and in case of a conflict 
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 Machine_Execution_Prompt = PromptTemplate(
     input_variables=["machine_name" , "task_id" , "task_name" , "duration_minutes" , "current_schedule"],
