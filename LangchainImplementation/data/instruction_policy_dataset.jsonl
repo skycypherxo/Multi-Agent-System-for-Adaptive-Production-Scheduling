@@ -1,0 +1,30 @@
+{"instruction":"schedule a cutting task for steel panel normal priority","capability":"cutting","rush":false,"start_offset":2,"preferred_machine":"M1","preconditions":["material_ready","coolant_check"]}
+{"instruction":"assign cutting operation with standard due date","capability":"cutting","rush":false,"start_offset":3,"preferred_machine":"M1","preconditions":["material_ready","tool_alignment"]}
+{"instruction":"route cutting job to capable idle machine","capability":"cutting","rush":false,"start_offset":1,"preferred_machine":"M1","preconditions":["material_ready","coolant_check"]}
+{"instruction":"urgent cutting order complete quickly","capability":"cutting","rush":true,"start_offset":0,"preferred_machine":"M1","preconditions":["material_ready","priority_lock"]}
+{"instruction":"rush cutting task with high priority","capability":"cutting","rush":true,"start_offset":0,"preferred_machine":"M1","preconditions":["material_ready","priority_lock"]}
+{"instruction":"normal cutting work with no rush","capability":"cutting","rush":false,"start_offset":2,"preferred_machine":"M1","preconditions":["material_ready","coolant_check"]}
+{"instruction":"schedule precision cutting batch","capability":"cutting","rush":false,"start_offset":2,"preferred_machine":"M1","preconditions":["tool_alignment","coolant_check"]}
+{"instruction":"high priority rush cut sheet metal","capability":"cutting","rush":true,"start_offset":0,"preferred_machine":"M1","preconditions":["material_ready","priority_lock"]}
+{"instruction":"allocate welding task normal queue","capability":"welding","rush":false,"start_offset":3,"preferred_machine":"M2","preconditions":["joint_prep","safety_check"]}
+{"instruction":"schedule welding operation with standard lead time","capability":"welding","rush":false,"start_offset":4,"preferred_machine":"M2","preconditions":["joint_prep","gas_check"]}
+{"instruction":"route welding task to available welder","capability":"welding","rush":false,"start_offset":2,"preferred_machine":"M2","preconditions":["joint_prep","safety_check"]}
+{"instruction":"urgent welding order execute now","capability":"welding","rush":true,"start_offset":0,"preferred_machine":"M2","preconditions":["joint_prep","priority_lock"]}
+{"instruction":"rush weld with immediate dispatch","capability":"welding","rush":true,"start_offset":0,"preferred_machine":"M2","preconditions":["joint_prep","priority_lock"]}
+{"instruction":"welding task normal priority do safely","capability":"welding","rush":false,"start_offset":3,"preferred_machine":"M2","preconditions":["safety_check","gas_check"]}
+{"instruction":"schedule repeated welding batch","capability":"welding","rush":false,"start_offset":3,"preferred_machine":"M2","preconditions":["joint_prep","safety_check"]}
+{"instruction":"high priority weld task minimal delay","capability":"welding","rush":true,"start_offset":0,"preferred_machine":"M2","preconditions":["joint_prep","priority_lock"]}
+{"instruction":"schedule painting task with setup buffer","capability":"painting","rush":false,"start_offset":5,"preferred_machine":"M3","preconditions":["surface_clean","paint_mix","setup_buffer"]}
+{"instruction":"assign paint operation standard priority","capability":"painting","rush":false,"start_offset":6,"preferred_machine":"M3","preconditions":["surface_clean","paint_mix","setup_buffer"]}
+{"instruction":"route painting job to paint machine","capability":"painting","rush":false,"start_offset":5,"preferred_machine":"M3","preconditions":["surface_clean","booth_ready","setup_buffer"]}
+{"instruction":"urgent painting order with fast turnaround","capability":"painting","rush":true,"start_offset":2,"preferred_machine":"M3","preconditions":["surface_clean","priority_lock","quick_dry_plan"]}
+{"instruction":"rush paint task highest priority","capability":"painting","rush":true,"start_offset":2,"preferred_machine":"M3","preconditions":["surface_clean","priority_lock","quick_dry_plan"]}
+{"instruction":"painting work normal queue include drying","capability":"painting","rush":false,"start_offset":6,"preferred_machine":"M3","preconditions":["surface_clean","drying_buffer","setup_buffer"]}
+{"instruction":"schedule painting batch for quality finish","capability":"painting","rush":false,"start_offset":5,"preferred_machine":"M3","preconditions":["surface_clean","paint_mix","quality_check"]}
+{"instruction":"high priority painting job but keep prep","capability":"painting","rush":true,"start_offset":2,"preferred_machine":"M3","preconditions":["surface_clean","priority_lock","quick_dry_plan"]}
+{"instruction":"cutting instruction choose cutter machine","capability":"cutting","rush":false,"start_offset":2,"preferred_machine":"M1","preconditions":["material_ready","coolant_check"]}
+{"instruction":"welding instruction choose welder machine","capability":"welding","rush":false,"start_offset":3,"preferred_machine":"M2","preconditions":["joint_prep","safety_check"]}
+{"instruction":"painting instruction choose painter machine","capability":"painting","rush":false,"start_offset":5,"preferred_machine":"M3","preconditions":["surface_clean","setup_buffer"]}
+{"instruction":"rush cutting instruction earliest feasible","capability":"cutting","rush":true,"start_offset":0,"preferred_machine":"M1","preconditions":["priority_lock","material_ready"]}
+{"instruction":"rush welding instruction earliest feasible","capability":"welding","rush":true,"start_offset":0,"preferred_machine":"M2","preconditions":["priority_lock","joint_prep"]}
+{"instruction":"rush painting instruction earliest feasible","capability":"painting","rush":true,"start_offset":2,"preferred_machine":"M3","preconditions":["priority_lock","surface_clean"]}

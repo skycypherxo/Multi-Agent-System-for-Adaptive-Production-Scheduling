@@ -15,6 +15,7 @@ from tasks import Task
 from prompts import Machine_Execution_Prompt
 from knowledge_base import SCHEDULING_KNOWLEDGE
 from micro_language_model import MicroLMTextGenerator
+from instruction_policy_model import build_or_load_instruction_policy
 
 
 class MachineStatus(str, Enum):
@@ -23,6 +24,26 @@ class MachineStatus(str, Enum):
     BUSY = "busy"
     BROKEN = "broken"
     MAINTENANCE = "maintenance"
+
+
+_INSTRUCTION_POLICY = None
+
+
+def _use_instruction_policy() -> bool:
+    value = os.getenv("USE_INSTRUCTION_POLICY", "").strip().lower()
+    if value in {"1", "true", "yes"}:
+        return True
+    if value in {"0", "false", "no"}:
+        return False
+    # Default to policy in micro mode so instruction behavior is deterministic and trainable.
+    return os.getenv("USE_MICRO_LM", "").strip() in {"1", "true", "TRUE", "yes", "YES"}
+
+
+def _get_instruction_policy():
+    global _INSTRUCTION_POLICY
+    if _INSTRUCTION_POLICY is None:
+        _INSTRUCTION_POLICY = build_or_load_instruction_policy()
+    return _INSTRUCTION_POLICY
 
 
 def _now():
@@ -88,6 +109,16 @@ class MachineAgent:
         return "\n".join(lines) if lines else "empty"
     
     def plan_execution_with_llm(self, task : Task, rag_context: str = "") -> Dict[str, Any]:
+        if _use_instruction_policy():
+            priority = "normal"
+            if task.metadata and isinstance(task.metadata, dict):
+                priority = str(task.metadata.get("priority", "normal"))
+            return _get_instruction_policy().plan_task(
+                task_name=task.name,
+                duration_minutes=task.duration_minutes,
+                priority=priority,
+            )
+
         prompt_text = Machine_Execution_Prompt.format(
             machine_name=self.name,
             task_id=task.id,
@@ -158,6 +189,10 @@ class MachineAgent:
             id=content.get("job_id", a2a_task.id),
             name=content.get("job_type", "unknown"),
             duration_minutes=content.get("duration_minutes", 30),
+            metadata={
+                "priority": content.get("priority", "normal"),
+                "rush": content.get("rush", False),
+            },
             required_capability=content.get("job_type", "")
         )
         
@@ -284,7 +319,11 @@ class SchedulerAgent:
         else:
             # Get all agents and filter out non-machines (like self)
             all_agents = self.a2a_client.discover_agents()
-            return [a for a in all_agents if a.name != self.id]
+            return [
+                a
+                for a in all_agents
+                if a.name != self.id and any(s.id == "status_report" for s in a.skills)
+            ]
     
     def poll_inbox(self) -> list:
         """Check inbox for job requests"""
@@ -298,9 +337,9 @@ class SchedulerAgent:
         Returns machine agent name or None if no suitable machine found.
         """
         required_capability = job.get("job_type", job.get("required_capability", ""))
-        
-        # Discover machines with required capability
-        available_machines = self.discover_machines(required_capability)
+
+        # Discover all machines; policy/LLM then chooses best among them.
+        available_machines = self.discover_machines()
         
         if not available_machines:
             print(f"[{self.id}] No machines found with capability: {required_capability}")
@@ -312,6 +351,11 @@ class SchedulerAgent:
         
         if rag_context:
             print(f"[{self.id}] RAG Context:\n{rag_context}")
+
+        if _use_instruction_policy():
+            selected = _get_instruction_policy().choose_machine(job, available_machines, rag_context)
+            if selected:
+                return selected
         
         # For now, simple selection (first available)
         # TODO: Use LLM for smarter selection based on RAG context
@@ -338,7 +382,11 @@ Return only the machine name, nothing else."""
         except Exception as e:
             print(f"[{self.id}] LLM error: {e}")
         
-        # Fallback: return first available machine
+        # Fallback: return first machine matching required capability.
+        if required_capability:
+            for machine in available_machines:
+                if any(s.id == required_capability for s in machine.skills):
+                    return machine.name
         return machine_names[0] if machine_names else None
     
     def assign_job_to_machine(self, job: Dict, machine_name: str) -> Optional[A2ATask]:
