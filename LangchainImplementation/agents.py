@@ -7,11 +7,14 @@ import json, re
 from typing import List , Dict , Any , Optional
 from dataclasses import dataclass, field
 from datetime import datetime , timedelta 
-from transformers import pipeline
 from enum import Enum
+import os
+from pathlib import Path
 
 from tasks import Task
 from prompts import Machine_Execution_Prompt
+from knowledge_base import SCHEDULING_KNOWLEDGE
+from micro_language_model import MicroLMTextGenerator
 
 
 class MachineStatus(str, Enum):
@@ -41,11 +44,12 @@ class MachineAgent:
     name : str 
     capabilities : List[str]
     # A2A Communication
+    
     a2a_client: A2AClient = field(default=None)
     agent_card: AgentCard = field(default=None)
     status: MachineStatus = MachineStatus.IDLE
     schedule : List[ScheduledEntry] = field(default_factory=list)
-    llm : Any = field(default_factory=lambda: pipeline("text-generation", model="gpt2", device=-1))
+    llm : Any = field(default_factory=lambda: _default_text_generator())
 
     def is_free_between(self, start:datetime , end : datetime) -> bool:
         #loop thru the entire schedule and check if it overlaps or not. If it does return False otherwise return True ezz
@@ -96,7 +100,7 @@ class MachineAgent:
         if rag_context:
             prompt_text += f"\n\nRelevant Knowledge:\n{rag_context}"
 
-        # Generate a response using the Hugging Face pipeline
+        # Generate a response using the configured generator (HF or Micro LM adapter)
         response = self.llm(prompt_text, max_new_tokens=50, num_return_sequences=1, truncation=True)
         text = response[0]["generated_text"]
 
@@ -186,6 +190,23 @@ class MachineAgent:
         return len(pending_tasks)
 
 
+def _default_text_generator():
+    """
+    Default generator for `MachineAgent.llm`.
+
+    - If `USE_MICRO_LM=1`, uses a tiny NumPy-only byte LM trained on the RAG knowledge text.
+    - Otherwise, falls back to HuggingFace `pipeline(..., model="gpt2")` as before.
+    """
+    if os.getenv("USE_MICRO_LM", "").strip() in {"1", "true", "TRUE", "yes", "YES"}:
+        weights = Path(__file__).with_name("artifacts") / "micro_lm_weights.npz"
+        return MicroLMTextGenerator(weights_path=weights, train_texts=SCHEDULING_KNOWLEDGE)
+
+    # Lazy import so the project can still run in Micro-LM mode even if HF deps are broken/missing.
+    from transformers import pipeline
+
+    return pipeline("text-generation", model="gpt2", device=-1)
+
+
 @dataclass
 class SchedulerAgent:
     """
@@ -206,7 +227,7 @@ class SchedulerAgent:
     vector_store: Any = field(default=None)
     
     # LLM for decision making
-    llm: Any = field(default_factory=lambda: pipeline("text-generation", model="gpt2", device=-1))
+    llm: Any = field(default_factory=lambda: _default_text_generator())
     
     # Tracking
     jobs_scheduled: List[Dict] = field(default_factory=list)

@@ -5,7 +5,10 @@ This module provides factory/production knowledge that gets embedded
 into the vector store for retrieval-augmented generation (RAG).
 """
 
-from langchain_vector_store import LangChainVectorStore
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from langchain_vector_store import LangChainVectorStore
 
 
 # =============================================================================
@@ -22,7 +25,7 @@ SCHEDULING_KNOWLEDGE = [
     "Machine M1 (Cutter-1) has high precision and is best for complex cutting tasks. It is Indian Made and requires an operator from Mumbai to use it.",
     "Machine M2 (Welder-1) performs optimally when tasks are spaced at least 15 minutes apart.",
     "Machine M3 (Painter-1) requires 5 minutes setup time before each painting task.",
-    
+
     # Conflict Resolution
     "When conflicts occur, prioritize tasks with earlier deadlines and higher priority.",
     "Reassigning tasks to machines with similar capabilities is preferred over delaying tasks.",
@@ -83,20 +86,22 @@ SCHEDULING_METADATA = [
 ]
 
 
-def initialize_knowledge_base() -> LangChainVectorStore:
+def initialize_knowledge_base() -> "LangChainVectorStore":
     """
     Initialize the RAG knowledge base with factory scheduling knowledge.
     
     Returns:
         LangChainVectorStore: Configured vector store with embedded documents
     """
+    from langchain_vector_store import LangChainVectorStore
+
     vector_store = LangChainVectorStore()
     vector_store.add_documents(SCHEDULING_KNOWLEDGE, SCHEDULING_METADATA)
     
     return vector_store
 
 
-def get_knowledge_base_with_custom_docs(additional_docs: list = None) -> LangChainVectorStore:
+def get_knowledge_base_with_custom_docs(additional_docs: list = None) -> "LangChainVectorStore":
     """
     Initialize knowledge base with optional additional documents.
     
@@ -115,4 +120,7 @@ def get_knowledge_base_with_custom_docs(additional_docs: list = None) -> LangCha
 
 
 # For backwards compatibility with old import
-VectorStore = LangChainVectorStore
+def VectorStore():  # type: ignore
+    from langchain_vector_store import LangChainVectorStore
+
+    return LangChainVectorStore
